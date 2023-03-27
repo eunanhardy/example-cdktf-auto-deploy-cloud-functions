@@ -1,0 +1,1 @@
+Directories created in src/ will be treated as their own cloud functions 

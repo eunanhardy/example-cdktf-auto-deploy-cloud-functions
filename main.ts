@@ -119,6 +119,15 @@ class CloudFunctionStack extends TerraformStack {
           sourceArchiveObject: googleStorageBucketObjectFunction.name,
           triggerHttp: true,
         });
+
+        new google.cloudfunctionsFunctionIamMember.CloudfunctionsFunctionIamMember(this, `invoker_iam_${config?.name}`,   {
+          member: "allUsers",
+          project: createdFunction.project,
+          region: createdFunction.region,
+          role: "roles/cloudfunctions.invoker",
+          cloudFunction: createdFunction.name,
+        }
+        );
         
         new TerraformOutput(this,`fn-${config?.name}-url`,{value:createdFunction.httpsTriggerUrl})
 

@@ -13,6 +13,7 @@ type FunctionConfig = {
     name: string,
     pathToFunc: string,
     entryPoint: string,
+    project: string,
   };
 
   function zipDirectory(dirPath: string, outputPath: string, callback: (err?: Error) => void): void {
@@ -72,12 +73,12 @@ class CloudFunctionStack extends TerraformStack {
 
 
         new google.provider.GoogleProvider(this, "google", {
-          project: "cdk-testing",
+          project: config?.project,
           region: "eu-west1",
         });
 
         new google.projectService.ProjectService(this, "storage-api", {
-          project: "cdk-testing",
+          project: config?.project,
           service: "storage-api.googleapis.com",
         });
 
@@ -117,6 +118,7 @@ class CloudFunctionStack extends TerraformStack {
           region: "europe-west1",
           sourceArchiveBucket: googleStorageBucketBucket.name,
           sourceArchiveObject: googleStorageBucketObjectFunction.name,
+          project: config?.project,
           triggerHttp: true,
         });
 
@@ -138,7 +140,7 @@ const app = new App();
 var directories = findDirectories("./src");
 directories.forEach((directory) => {
   const name = directory.path.split("/").pop();
-  new CloudFunctionStack(app, `stack-fn-${name}`,{name:`${name}`,pathToFunc:directory.path,entryPoint:"handler"});
+  new CloudFunctionStack(app, `stack-fn-${name}`,{name:`${name}`,pathToFunc:directory.path,entryPoint:"handler",project:"PROJECT_ID"});
 });
 
 app.synth();

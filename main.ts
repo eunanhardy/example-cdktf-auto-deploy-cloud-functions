@@ -1,9 +1,8 @@
 import { Construct } from "constructs";
-import { App, TerraformStack} from "cdktf";
+import { App, TerraformStack,TerraformOutput} from "cdktf";
 import * as google from "@cdktf/provider-google";
 
 import * as fs from 'fs';
-import { TerraformOutput } from "cdktf/lib/terraform-output";
 import * as archiver from 'archiver';
 
 
@@ -14,6 +13,11 @@ type FunctionConfig = {
     pathToFunc: string,
     entryPoint: string,
     project: string,
+    region: string,
+    runtime: string,
+    bucket_name: string,
+    bucket_region: string,
+    memory: number,
   };
 
   function zipDirectory(dirPath: string, outputPath: string, callback: (err?: Error) => void): void {
@@ -74,7 +78,7 @@ class CloudFunctionStack extends TerraformStack {
 
         new google.provider.GoogleProvider(this, "google", {
           project: config?.project,
-          region: "eu-west1",
+          region: config?.region,
         });
 
         new google.projectService.ProjectService(this, "storage-api", {
@@ -86,8 +90,8 @@ class CloudFunctionStack extends TerraformStack {
           this,
           "bucket",
           {
-            location: "EU",
-            name: "eh-cloud-deployments-2",
+            location: config?.bucket_region || "EU",
+            name: config?.bucket_name || "function_deployments",
           }
         );
 
@@ -110,18 +114,19 @@ class CloudFunctionStack extends TerraformStack {
         });
 
         const createdFunction = new google.cloudfunctionsFunction.CloudfunctionsFunction(this, `fn-${config?.name}`, {
-          availableMemoryMb: 128,
+          availableMemoryMb: config?.memory || 128,
           description: "Test Terraform Function",
           entryPoint: config?.entryPoint,
           name: config?.name || "Invalid_Function_Name_1",
-          runtime: "nodejs10",
-          region: "europe-west1",
+          runtime: config?.runtime || "nodejs18",
+          region: config?.region || "europe-west1",
           sourceArchiveBucket: googleStorageBucketBucket.name,
           sourceArchiveObject: googleStorageBucketObjectFunction.name,
           project: config?.project,
           triggerHttp: true,
         });
 
+        //This iam role is to allow all users to invoke the function, This means PUBLIC ACCESS
         new google.cloudfunctionsFunctionIamMember.CloudfunctionsFunctionIamMember(this, `invoker_iam_${config?.name}`,   {
           member: "allUsers",
           project: createdFunction.project,
@@ -140,7 +145,7 @@ const app = new App();
 var directories = findDirectories("./src");
 directories.forEach((directory) => {
   const name = directory.path.split("/").pop();
-  new CloudFunctionStack(app, `stack-fn-${name}`,{name:`${name}`,pathToFunc:directory.path,entryPoint:"handler",project:"PROJECT_ID"});
+  new CloudFunctionStack(app, `stack-fn-${name}`,{name:`${name}`,pathToFunc:directory.path,entryPoint:"handler",project:"PROJECT_ID",region:"europe-west1",runtime:"nodejs18",bucket_name:"function_deployments",bucket_region:"EU",memory:128});
 });
 
 app.synth();
